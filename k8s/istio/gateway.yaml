@@ -1,0 +1,122 @@
+# MTKC POC EKS - Kubernetes Gateway API - Gateway Resource
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+# This creates the Istio ingress gateway with an INTERNAL NLB
+# Traffic flow: Internet → ALB (TLS termination) → Internal NLB → Istio Gateway
+#
+# IMPORTANT: This uses Gateway API (gateway.networking.k8s.io), NOT Ingress
+# IMPORTANT: NOT using classic networking.k8s.io/v1 Ingress resources
+#
+# END-TO-END TLS CONFIGURATION:
+# ALB terminates external TLS, re-encrypts to Istio Gateway via internal NLB
+# This Gateway supports both HTTP (port 80) and HTTPS (port 443)
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mtkc-gateway
+  namespace: istio-ingress
+spec:
+  # Use Istio's Gateway API implementation (NOT IngressClass)
+  gatewayClassName: istio
+
+  # Infrastructure configuration for the auto-created Service
+  # Uses AWS Load Balancer Controller annotations for INTERNAL NLB
+  infrastructure:
+    # Gateway pods run on system nodes
+    labels:
+      role: system
+    annotations:
+      # AWS Load Balancer Controller - INTERNAL NLB (not internet-facing)
+      service.beta.kubernetes.io/aws-load-balancer-type: "external"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+      # CRITICAL: Internal scheme - not exposed to internet directly
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+      # Health check configuration (max 8 annotations due to Gateway API CRD limit)
+      service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "TCP"
+      service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "traffic-port"
+      service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "10"
+      service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "2"
+
+  listeners:
+    # HTTP Listener (port 80)
+    - name: http
+      port: 80
+      protocol: HTTP
+      # hostname omitted = accepts all hostnames
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    # HTTPS Listener (port 443) - End-to-End TLS from ALB
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: istio-gateway-tls
+            namespace: istio-ingress
+      allowedRoutes:
+        namespaces:
+          from: All
+
+---
+# Alternative: Create the Gateway with ClusterIP and a separate Internal NLB Service
+# Use this approach if infrastructure.annotations doesn't work with your Istio version
+
+# apiVersion: gateway.networking.k8s.io/v1
+# kind: Gateway
+# metadata:
+#   name: mtkc-gateway
+#   namespace: istio-ingress
+#   annotations:
+#     # Force ClusterIP instead of LoadBalancer
+#     networking.istio.io/service-type: ClusterIP
+# spec:
+#   gatewayClassName: istio
+#   listeners:
+#     - name: http
+#       port: 80
+#       protocol: HTTP
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+#     - name: https
+#       port: 443
+#       protocol: HTTPS
+#       tls:
+#         mode: Terminate
+#         certificateRefs:
+#           - kind: Secret
+#             name: istio-gateway-tls
+#             namespace: istio-ingress
+#       allowedRoutes:
+#         namespaces:
+#           from: All
+
+# ---
+# # Then create INTERNAL NLB Service separately
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: mtkc-gateway-nlb
+#   namespace: istio-ingress
+#   annotations:
+#     service.beta.kubernetes.io/aws-load-balancer-type: "external"
+#     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+#     service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+# spec:
+#   type: LoadBalancer
+#   selector:
+#     istio.io/gateway-name: mtkc-gateway
+#   ports:
+#     - name: http
+#       port: 80
+#       targetPort: 80
+#       protocol: TCP
+#     - name: https
+#       port: 443
+#       targetPort: 443
+#       protocol: TCP

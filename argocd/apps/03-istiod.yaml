@@ -1,0 +1,45 @@
+# MTKC POC EKS - ArgoCD App: Istiod (Control Plane)
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+# Sync Wave: 0 (after CRDs)
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istiod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: istiod
+    targetRevision: 1.24.0
+    helm:
+      releaseName: istiod
+      values: |
+        profile: ambient
+        meshConfig:
+          accessLogFile: /dev/stdout
+        # Run istiod on system nodes
+        pilot:
+          nodeSelector:
+            role: system
+          tolerations:
+            - key: CriticalAddonsOnly
+              operator: Exists
+              effect: NoSchedule
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

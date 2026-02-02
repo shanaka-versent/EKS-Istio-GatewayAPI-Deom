@@ -1,0 +1,15 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+.terraform.lock.hcl
+
+# Certificates (sensitive)
+certs/*.pem
+certs/*.crt
+certs/*.key
+
+# OS files
+.DS_Store
