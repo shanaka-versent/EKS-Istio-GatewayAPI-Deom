@@ -1,0 +1,107 @@
+# MTKC POC EKS - API Gateway App-Specific Configuration via ACK CRDs
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+#
+# LAYER 4: Application Deployment (ArgoCD)
+# ========================================
+# This file contains ONLY app-specific API routes and integrations.
+# The API Gateway foundations (VPCLink, API, Stage) are created by Terraform (Layer 2).
+#
+# Terraform creates:
+#   - VPC Link (connectivity to private VPC)
+#   - HTTP API (the API Gateway itself)
+#   - Default Stage
+#
+# ArgoCD/ACK manages (this file):
+#   - Integrations (backend connections)
+#   - Routes (API endpoints)
+#
+# Traffic Flow:
+# Internet → API Gateway (Terraform) → VPC Link (Terraform) → Integration → Backend
+#
+# API Versioning:
+# /api/v1/users → Backend /api/users (version stripped by API Gateway)
+# /api/v2/users → Backend /api/users (version stripped by API Gateway)
+#
+# IMPORTANT: Get these values from Terraform outputs before deploying:
+#   terraform output api_gateway_id
+#   terraform output api_gateway_vpc_link_id
+#   terraform output ack_integration_config
+
+---
+# Integration - VPC Link integration to Internal NLB
+# Connects the Terraform-created API Gateway to the backend service
+apiVersion: apigatewayv2.services.k8s.aws/v1alpha1
+kind: Integration
+metadata:
+  name: users-api-integration
+  namespace: api-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  # Reference the Terraform-created API Gateway by ID
+  apiID: "REPLACE_WITH_API_GATEWAY_ID"  # From: terraform output api_gateway_id
+
+  integrationType: HTTP_PROXY
+  integrationMethod: ANY
+
+  # Backend URL - Internal NLB endpoint
+  # Get from: kubectl get svc -n istio-ingress -l istio.io/gateway-name=mtkc-gateway
+  integrationURI: "http://REPLACE_WITH_INTERNAL_NLB_DNS/api/users"
+
+  connectionType: VPC_LINK
+  # Reference the Terraform-created VPC Link by ID
+  connectionID: "REPLACE_WITH_VPC_LINK_ID"  # From: terraform output api_gateway_vpc_link_id
+
+  payloadFormatVersion: "1.0"
+  timeoutInMillis: 30000
+
+---
+# Route: GET /api/v1/users
+apiVersion: apigatewayv2.services.k8s.aws/v1alpha1
+kind: Route
+metadata:
+  name: users-v1-get
+  namespace: api-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  # Reference the Terraform-created API Gateway by ID
+  apiID: "REPLACE_WITH_API_GATEWAY_ID"  # From: terraform output api_gateway_id
+  routeKey: "GET /api/v1/users"
+  target:
+    from:
+      name: users-api-integration
+
+---
+# Route: GET /api/v2/users (same backend, different version)
+apiVersion: apigatewayv2.services.k8s.aws/v1alpha1
+kind: Route
+metadata:
+  name: users-v2-get
+  namespace: api-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  # Reference the Terraform-created API Gateway by ID
+  apiID: "REPLACE_WITH_API_GATEWAY_ID"  # From: terraform output api_gateway_id
+  routeKey: "GET /api/v2/users"
+  target:
+    from:
+      name: users-api-integration
+
+---
+# Route: Health check
+apiVersion: apigatewayv2.services.k8s.aws/v1alpha1
+kind: Route
+metadata:
+  name: health-route
+  namespace: api-services
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  # Reference the Terraform-created API Gateway by ID
+  apiID: "REPLACE_WITH_API_GATEWAY_ID"  # From: terraform output api_gateway_id
+  routeKey: "GET /health"
+  target:
+    from:
+      name: users-api-integration

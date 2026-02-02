@@ -1,0 +1,66 @@
+# MTKC POC EKS - ArgoCD App: ACK API Gateway v2 Controller
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+#
+# LAYER 3: EKS Customizations (ArgoCD)
+# Sync Wave: 2 (after Istio, before API Gateway routes)
+#
+# ACK (AWS Controllers for Kubernetes) is the AWS equivalent of Azure Service Operator
+# It allows managing AWS resources via Kubernetes CRDs
+#
+# NOTE: Get the role ARN from Terraform: terraform output ack_apigatewayv2_role_arn
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ack-apigatewayv2
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # ACK API Gateway v2 Controller Helm chart from AWS ECR Public
+    repoURL: public.ecr.aws/aws-controllers-k8s
+    chart: apigatewayv2-chart
+    targetRevision: 1.0.17
+    helm:
+      releaseName: ack-apigatewayv2-controller
+      values: |
+        # AWS Region - UPDATE THIS to your region
+        aws:
+          region: ap-southeast-2
+
+        # Service Account with IRSA
+        serviceAccount:
+          create: true
+          name: ack-apigatewayv2-controller
+          annotations:
+            # UPDATE THIS with your ACK role ARN from Terraform output
+            eks.amazonaws.com/role-arn: "REPLACE_WITH_ACK_ROLE_ARN"
+
+        # Resource configuration
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+
+        # Logging
+        log:
+          level: info
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ack-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

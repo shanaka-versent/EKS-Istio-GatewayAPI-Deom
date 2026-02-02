@@ -1,0 +1,41 @@
+# MTKC POC EKS - ArgoCD App: API Gateway Routes & Integrations via ACK
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+#
+# LAYER 4: Application Deployment (ArgoCD)
+# Sync Wave: 9 (after ACK controller is deployed and services are running)
+#
+# This manages app-specific API Gateway routes and integrations.
+# The API Gateway foundations (VPCLink, API, Stage) are created by Terraform (Layer 2).
+#
+# Before deploying, update k8s/api-gateway/api-gateway-config.yaml with:
+#   - API Gateway ID: terraform output api_gateway_id
+#   - VPC Link ID: terraform output api_gateway_vpc_link_id
+#   - Internal NLB DNS: kubectl get svc -n istio-ingress
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "9"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/shanaka-versent/EKS-Istio-GatewayAPI-Deom.git
+    targetRevision: HEAD
+    path: k8s/api-gateway
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: api-services
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

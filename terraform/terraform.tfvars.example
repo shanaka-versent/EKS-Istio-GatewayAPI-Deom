@@ -1,0 +1,48 @@
+# MTKC POC EKS - Example Terraform Variables
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+#
+# Copy this file to terraform.tfvars and customize as needed
+
+# AWS Region
+region = "ap-southeast-2"
+
+# Project Settings
+environment  = "poc"
+project_name = "mtkc"
+
+# Network
+vpc_cidr           = "10.0.0.0/16"
+az_count           = 2
+enable_nat_gateway = true
+
+# EKS Configuration
+kubernetes_version     = "1.31"
+eks_node_count         = 2
+eks_node_instance_type = "t3.medium"
+
+# User Node Pool (optional)
+enable_user_node_pool   = false
+user_node_count         = 2
+user_node_instance_type = "t3.medium"
+
+# EKS Autoscaling
+enable_eks_autoscaling = false
+system_node_min_count  = 1
+system_node_max_count  = 3
+user_node_min_count    = 1
+user_node_max_count    = 5
+
+# EKS Logging
+enable_logging = false
+
+# TLS Configuration
+enable_https          = true
+acm_certificate_arn   = ""  # Required for HTTPS - create ACM cert first
+backend_https_enabled = true
+
+# Tags
+tags = {
+  Project   = "MTKC-POC"
+  Purpose   = "Gateway-API-EKS-Integration"
+  ManagedBy = "Terraform"
+}

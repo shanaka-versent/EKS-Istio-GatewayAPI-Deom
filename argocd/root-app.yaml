@@ -1,0 +1,44 @@
+# MTKC POC EKS - ArgoCD Root Application (App of Apps Pattern)
+# @author Shanaka Jayasundera - shanakaj@gmail.com
+#
+# This is the root application that manages all child applications
+# Deploy this after Terraform has created the cluster and ArgoCD:
+#   kubectl apply -f argocd/root-app.yaml
+#
+# ArgoCD manages Layers 3 & 4:
+# ============================
+# Layer 3: EKS Customizations
+#   - Istio Ambient Mesh (base, istiod, cni, ztunnel)
+#   - Namespaces with ambient labels
+#   - Gateway and HTTPRoutes
+#
+# Layer 4: Application Deployment
+#   - Sample Applications
+#   - App-specific API Gateway routes (via ACK CRDs)
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mtkc-poc-eks-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/shanaka-versent/EKS-Istio-GatewayAPI-Deom.git
+    targetRevision: HEAD
+    path: argocd/apps
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
