@@ -466,6 +466,44 @@ The [AKS Istio Gateway API implementation](https://github.com/shanaka-versent/AK
 - Azure App Gateway with Internal LB uses Direct Server Return (DSR) with Floating IP, which requires `externalTrafficPolicy: Local` to prevent SNAT from breaking the return path
 - AWS NLB with IP target type uses VPC routing directly to pod IPs, avoiding the SNAT issue entirely
 
+### Fix 1: HTTPRoute for /healthz (Health Probe Routing)
+
+**Problem:** ALB health probes to `/healthz/ready` return 404 errors because the Istio Gateway has no routing rule defined for health check requests.
+
+**Solution:** A dedicated HTTPRoute routes `/healthz/*` paths to a health-responder service that returns 200 OK responses.
+
+```mermaid
+flowchart LR
+    subgraph ALB["ALB Health Probe"]
+        Probe["GET /healthz/ready"]
+    end
+
+    subgraph IstioGW["Istio Gateway (Envoy)"]
+        Match{"HTTPRoute<br/>Matching?"}
+    end
+
+    subgraph Results["Result"]
+        NoRoute["NO HTTPRoute<br/>404 Not Found<br/>Target Unhealthy"]
+        WithRoute["WITH HTTPRoute<br/>200 OK<br/>Target Healthy"]
+    end
+
+    Probe --> Match
+    Match -->|"No match"| NoRoute
+    Match -->|"Match found"| WithRoute
+
+    style ALB fill:#e3f2fd,stroke:#1976d2
+    style IstioGW fill:#e8eaf6,stroke:#466bb0
+    style NoRoute fill:#ffebee,stroke:#c62828
+    style WithRoute fill:#e8f5e9,stroke:#2e7d32
+```
+
+**Implementation Files:**
+| File | Purpose |
+|------|---------|
+| [k8s/istio/httproutes.yaml](k8s/istio/httproutes.yaml) | Defines health-route for `/healthz/*` paths |
+| [k8s/apps/health-responder.yaml](k8s/apps/health-responder.yaml) | Deploys nginx pod responding with 200 OK |
+| [k8s/istio/httproutes.yaml](k8s/istio/httproutes.yaml) | ReferenceGrant for cross-namespace routing |
+
 ## License
 
 MIT License
