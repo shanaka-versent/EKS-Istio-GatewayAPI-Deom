@@ -2,12 +2,20 @@
 
 **Author:** Shanaka Jayasundera - shanakaj@gmail.com
 
-This project demonstrates a modern Kubernetes architecture on AWS EKS using:
-- **Kubernetes Gateway API** (not Ingress)
-- **Istio Ambient Mesh** (no sidecars)
-- **End-to-End TLS** with self-signed certificates
-- **AWS ALB** (external) + **Internal NLB** for web traffic
-- **ArgoCD** for GitOps deployments
+This POC demonstrates how to implement Kubernetes Gateway API on AWS EKS with Istio Ambient Mesh, exposed via AWS Application Load Balancer (ALB).
+
+In the real world, you don't always get a greenfield opportunity to design the cleanest architecture. More often, you need to retrofit the best possible solution to existing standards and platforms. This project examines exactly that situation—where Kubernetes-hosted workloads need to be exposed via an existing platform with Load Balancers and WAF (or a WAF sandwich architecture).
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Kubernetes Gateway API** | Future-proof networking replacing deprecated Ingress-NGINX (retiring March 2026) |
+| **Istio Ambient Mesh** | Service mesh without sidecars—lower overhead, simplified operations |
+| **AWS ALB + Internal NLB** | Leverage existing ALB/WAF infrastructure for secure internet exposure |
+| **ArgoCD GitOps** | Declarative, version-controlled Kubernetes customisations and deployments |
+| **Separated Node Pools** | System nodes for critical add-ons, User nodes for application workloads |
+| **Layered Architecture** | Clear separation: Cloud foundations → EKS setup → K8s customisations → Applications |
 
 ## Architecture Overview
 
