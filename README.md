@@ -74,6 +74,70 @@ Internet ──▶ ALB (Layer 7) ──▶ Internal NLB (Layer 4) ──▶ Isti
                  └─────────────┘          └─────────────┘          └─────────────┘
 ```
 
+## End-to-End TLS Flow
+
+The architecture implements **dual TLS termination** for secure traffic from client to backend:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant ALB as AWS ALB<br/>(Public)
+    participant NLB as Internal NLB<br/>(Private)
+    participant Gateway as Istio Gateway<br/>(Pod)
+    participant App as Backend App<br/>(Pod)
+
+    Note over Client,ALB: TLS Session 1 (Frontend)
+    Client->>+ALB: HTTPS :443<br/>TLS with ACM Certificate
+    ALB->>ALB: TLS Termination
+
+    Note over ALB,Gateway: TLS Session 2 (Backend)
+    ALB->>+NLB: HTTPS :443<br/>Re-encrypted
+    NLB->>+Gateway: HTTPS :443<br/>TLS Passthrough
+    Gateway->>Gateway: TLS Termination<br/>(istio-gateway-tls secret)
+
+    Note over Gateway,App: Plain HTTP (mTLS via Ambient)
+    Gateway->>+App: HTTP :8080<br/>Istio Ambient mTLS
+    App-->>-Gateway: Response
+    Gateway-->>-NLB: Response
+    NLB-->>-ALB: Response
+    ALB-->>-Client: HTTPS Response
+```
+
+### TLS Certificate Chain
+
+| Component | Certificate | Purpose |
+|-----------|-------------|---------|
+| **ALB Frontend** | ACM Certificate | Terminates client HTTPS, provides trusted certificate |
+| **Istio Gateway** | `istio-gateway-tls` Secret | Terminates re-encrypted traffic from ALB via NLB |
+| **Pod-to-Pod** | Istio Ambient mTLS | Automatic mTLS between services (no sidecar needed) |
+
+### Certificate Configuration
+
+**1. ALB Frontend (ACM Certificate)**
+- Use AWS Certificate Manager (ACM) for the public-facing certificate
+- Set `enable_https = true` and `acm_certificate_arn` in Terraform variables
+
+**2. Istio Gateway Backend (Self-signed)**
+```bash
+# Generate certificates
+./scripts/01-generate-certs.sh
+
+# Create Kubernetes secret
+kubectl create namespace istio-ingress
+kubectl create secret tls istio-gateway-tls \
+  --cert=certs/server.crt \
+  --key=certs/server.key \
+  -n istio-ingress
+```
+
+**3. Enable End-to-End TLS in Terraform**
+```hcl
+# terraform.tfvars
+enable_https          = true
+acm_certificate_arn   = "arn:aws:acm:region:account:certificate/xxx"
+backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
+```
+
 ## Architecture Layers
 
 ```
