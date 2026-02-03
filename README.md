@@ -15,24 +15,6 @@ This project demonstrates a modern Kubernetes architecture on AWS EKS using:
 
 > **Note:** The diagram shows "Public Subnet" and "Private Subnet" as single boxes for simplicity, but the actual implementation creates **multiple subnets across Availability Zones** (default: 2 AZs) for high availability.
 
-### ALB SSL Termination & Re-encryption (Similar to Azure App Gateway)
-
-AWS ALB supports **end-to-end TLS** with the same pattern as Azure Application Gateway:
-
-| Feature | AWS ALB | Azure App Gateway |
-|---------|---------|-------------------|
-| **Frontend TLS Termination** | Yes (ACM Certificate) | Yes (Key Vault/PFX) |
-| **Backend Re-encryption** | Yes (HTTPS Target Group) | Yes (Backend HTTPS) |
-| **Backend Certificate Validation** | Optional (can skip for self-signed) | Optional |
-| **Health Check over HTTPS** | Yes | Yes |
-
-**How it works:**
-1. **Client → ALB**: TLS terminated using ACM certificate (trusted CA)
-2. **ALB → Backend**: Re-encrypted using HTTPS Target Group (self-signed cert OK)
-3. **NLB**: Pure L4 passthrough - no TLS inspection
-4. **Istio Gateway**: Second TLS termination using `istio-gateway-tls` secret
-5. **Gateway → Pods**: Plain HTTP, but Istio Ambient adds transparent mTLS
-
 ## End-to-End Traffic Flow
 
 The architecture implements **dual TLS termination** for secure traffic from client to backend:
