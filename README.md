@@ -1,4 +1,4 @@
-# MTKC POC - AWS EKS with Kubernetes Gateway API & Istio Ambient
+# POC - AWS EKS with Kubernetes Gateway API & Istio Ambient
 
 **Author:** Shanaka Jayasundera - shanakaj@gmail.com
 
