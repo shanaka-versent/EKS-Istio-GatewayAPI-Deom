@@ -15,8 +15,6 @@ This project demonstrates a modern Kubernetes architecture on AWS EKS using:
 
 > **Note:** The diagram shows "Public Subnet" and "Private Subnet" as single boxes for simplicity, but the actual implementation creates **multiple subnets across Availability Zones** (default: 2 AZs) for high availability.
 
-**Traffic Flow:** `Client` → `ALB (TLS Termination #1 + Re-encrypt)` → `Internal NLB (Passthrough)` → `Istio Gateway (TLS Termination #2)` → `HTTPRoute Matching` → `Backend PODs`
-
 ### ALB SSL Termination & Re-encryption (Similar to Azure App Gateway)
 
 AWS ALB supports **end-to-end TLS** with the same pattern as Azure Application Gateway:
