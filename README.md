@@ -17,14 +17,6 @@ In the real world, you don't always get a greenfield opportunity to design the c
 | **Separated Node Pools** | System nodes for critical add-ons, User nodes for application workloads |
 | **Layered Architecture** | Clear separation: Cloud foundations → EKS setup → K8s customisations → Applications |
 
-## Deployment Flow
-
-```mermaid
-flowchart LR
-    A[Terraform<br/>Layers 1-2<br/><br/>Creates ALB<br/>+ Target Group] --> B[ArgoCD<br/>Layers 3-4<br/><br/>Creates NLB<br/>via Gateway]
-    B --> C[Post-Deploy<br/>Script<br/><br/>Registers<br/>NLB → ALB]
-```
-
 ## Architecture Overview
 
 ![Architecture Overview](docs/images/architecture-overview.png)
@@ -241,14 +233,10 @@ This deploys via ArgoCD:
 > 2. Discover the NLB IP address
 > 3. Register it with the ALB target group
 >
-> ```
-> ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-> │  Terraform   │     │   ArgoCD     │     │ Post-Deploy  │
-> │  (Layers 1-2)│────▶│  (Layers 3-4)│────▶│   Script     │
-> │              │     │              │     │              │
-> │ Creates ALB  │     │ Creates NLB  │     │ Registers    │
-> │ + Target Grp │     │ via Gateway  │     │ NLB → ALB    │
-> └──────────────┘     └──────────────┘     └──────────────┘
+> ```mermaid
+> flowchart LR
+>     A[Terraform<br/>Layers 1-2<br/><br/>Creates ALB<br/>+ Target Group] --> B[ArgoCD<br/>Layers 3-4<br/><br/>Creates NLB<br/>via Gateway]
+>     B --> C[Post-Deploy<br/>Script<br/><br/>Registers<br/>NLB → ALB]
 > ```
 >
 > **Alternative Approach:**
