@@ -175,6 +175,15 @@ flowchart TB
     style L3Istio fill:#e1bee7
 ```
 
+## Layer Responsibilities
+
+| Layer | Tool | What It Creates |
+|-------|------|-----------------|
+| **Layer 1** | Terraform | VPC, Subnets (Public/Private), NAT/IGW, Route Tables |
+| **Layer 2** | Terraform | EKS, Node Groups (System/User), IAM, ArgoCD, LB Controller, ALB |
+| **Layer 3** | ArgoCD | Gateway API CRDs, Istio Ambient, Gateway, HTTPRoutes |
+| **Layer 4** | ArgoCD | Applications (app1, app2, users-api, health-responder) |
+
 ## EKS Cluster Detail
 
 ```mermaid
@@ -225,15 +234,6 @@ flowchart TB
     style API2 fill:#fbe9e7
     style GH fill:#f1f8e9
 ```
-
-## Layer Responsibilities
-
-| Layer | Tool | What It Creates |
-|-------|------|-----------------|
-| **Layer 1** | Terraform | VPC, Subnets (Public/Private), NAT/IGW, Route Tables |
-| **Layer 2** | Terraform | EKS, Node Groups (System/User), IAM, ArgoCD, LB Controller, ALB |
-| **Layer 3** | ArgoCD | Gateway API CRDs, Istio Ambient, Gateway, HTTPRoutes |
-| **Layer 4** | ArgoCD | Applications (app1, app2, users-api, health-responder) |
 
 ## Prerequisites
 
