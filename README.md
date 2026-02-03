@@ -16,25 +16,29 @@ flowchart TB
     subgraph AWS["AWS Cloud"]
         subgraph VPC["VPC"]
             subgraph Public["Public Subnets"]
-                ALB["AWS ALB<br/>(Internet-facing)<br/>HTTP/HTTPS"]
-                TG["Target Group<br/>NLB IPs registered<br/>post-deploy"]
+                ALB["AWS ALB<br/>(Internet-facing)"]
+                TLS1["TLS Termination<br/>ACM Certificate"]
+                TLS2["TLS Re-encryption<br/>Backend HTTPS"]
+                TG["Target Group<br/>(HTTPS:443)"]
             end
             subgraph Private["Private Subnets"]
                 subgraph EKS["EKS Cluster"]
-                    NLB["Internal NLB<br/>(AWS LB Controller)"]
-                    GW["Istio Gateway<br/>(Gateway API)"]
+                    NLB["Internal NLB<br/>(TLS Passthrough)"]
+                    GW["Istio Gateway<br/>TLS Termination<br/>(Self-signed cert)"]
                     HR["HTTPRoutes<br/>/app1 /app2<br/>/api/users /healthz"]
-                    Apps["Application Pods<br/>(Istio Ambient)"]
+                    Apps["Application Pods<br/>(Istio Ambient mTLS)"]
                 end
             end
         end
     end
 
-    Internet((Internet)) --> ALB
-    ALB --> TG
-    TG --> NLB
-    NLB --> GW
-    GW --> HR
+    Internet((Internet)) -->|"HTTPS :443"| ALB
+    ALB --> TLS1
+    TLS1 -->|"Decrypt"| TLS2
+    TLS2 -->|"Re-encrypt"| TG
+    TG -->|"HTTPS :443"| NLB
+    NLB -->|"HTTPS :443"| GW
+    GW -->|"HTTP + mTLS"| HR
     HR --> Apps
 
     style AWS fill:#fff3e0
@@ -42,9 +46,29 @@ flowchart TB
     style Public fill:#c8e6c9
     style Private fill:#ffecb3
     style EKS fill:#f3e5f5
+    style TLS1 fill:#e8f5e9,stroke:#2e7d32
+    style TLS2 fill:#fff3e0,stroke:#f57c00
 ```
 
-**Traffic Flow:** `Internet` → `ALB (L7)` → `Internal NLB (L4)` → `Istio Gateway` → `HTTPRoutes` → `Apps`
+**Traffic Flow:** `Internet` → `ALB (TLS Terminate + Re-encrypt)` → `Internal NLB (Passthrough)` → `Istio Gateway (TLS Terminate)` → `Apps (mTLS)`
+
+### ALB SSL Termination & Re-encryption (Similar to Azure App Gateway)
+
+AWS ALB supports **end-to-end TLS** with the same pattern as Azure Application Gateway:
+
+| Feature | AWS ALB | Azure App Gateway |
+|---------|---------|-------------------|
+| **Frontend TLS Termination** | Yes (ACM Certificate) | Yes (Key Vault/PFX) |
+| **Backend Re-encryption** | Yes (HTTPS Target Group) | Yes (Backend HTTPS) |
+| **Backend Certificate Validation** | Optional (can skip for self-signed) | Optional |
+| **Health Check over HTTPS** | Yes | Yes |
+
+**How it works:**
+1. **Client → ALB**: TLS terminated using ACM certificate (trusted CA)
+2. **ALB → Backend**: Re-encrypted using HTTPS Target Group (self-signed cert OK)
+3. **NLB**: Pure L4 passthrough - no TLS inspection
+4. **Istio Gateway**: Second TLS termination using `istio-gateway-tls` secret
+5. **Gateway → Pods**: Plain HTTP, but Istio Ambient adds transparent mTLS
 
 ## End-to-End Traffic Flow
 
