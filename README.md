@@ -115,40 +115,50 @@ backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
 ```mermaid
 flowchart TB
     subgraph L1["LAYER 1: Cloud Foundations (Terraform)"]
-        VPC[VPC]
-        PubSub[Public Subnets]
-        PrivSub[Private Subnets]
-        IGW[Internet Gateway]
-        NAT[NAT Gateway]
-        SG[Security Groups]
+        direction TB
+        L1A["VPC with Public & Private Subnets"]
+        L1B["NAT Gateway, Internet Gateway"]
+        L1C["Route Tables, Security Groups"]
     end
 
     subgraph L2["LAYER 2: Base EKS Cluster Setup (Terraform)"]
-        EKS[EKS Cluster + OIDC]
-        SysNodes[System Nodes<br/>Taint: CriticalAddonsOnly]
-        UserNodes[User Nodes<br/>No Taint]
-        IAM[IAM Roles]
-        ArgoCD[ArgoCD]
-        LBC[AWS LB Controller]
-        ALB[ALB - Internet-facing]
+        direction TB
+        L2A["EKS Cluster with OIDC Provider"]
+        subgraph L2Nodes["Node Groups"]
+            direction TB
+            subgraph L2Sys["System Nodes (tainted: CriticalAddonsOnly)"]
+                L2SysRuns["Runs: ArgoCD, Istio, LB Controller"]
+            end
+            subgraph L2User["User Nodes (no taint)"]
+                L2UserRuns["Runs: Application workloads"]
+            end
+        end
+        L2B["IAM Roles (Cluster, Node, LB Controller)"]
+        L2C["ArgoCD Installation"]
+        L2D["AWS Load Balancer Controller"]
+        L2E["ALB (External, Internet-facing)"]
     end
 
-    subgraph L3["LAYER 3: EKS Customizations (ArgoCD)"]
-        GWAPI[Gateway API CRDs]
-        IstioBase[istio-base CRDs]
-        Istiod[istiod Control Plane]
-        IstioCNI[istio-cni Plugin]
-        Ztunnel[ztunnel DaemonSet]
-        NS[Namespaces<br/>ambient mode]
-        GW[Istio Gateway<br/>creates Internal NLB]
-        Routes[HTTPRoutes]
+    subgraph L3["LAYER 3: EKS Customisations (ArgoCD)"]
+        direction TB
+        L3A["Gateway API CRDs (Kubernetes SIGs)"]
+        subgraph L3Istio["Istio Ambient Mesh"]
+            direction TB
+            L3I1["istio-base (CRDs)"]
+            L3I2["istiod (Control Plane)"]
+            L3I3["istio-cni (CNI Plugin)"]
+            L3I4["ztunnel (L4 mTLS DaemonSet)"]
+        end
+        L3B["Namespaces (istio.io/dataplane-mode: ambient)"]
+        L3C["Istio Gateway (creates Internal NLB)"]
+        L3D["HTTPRoutes (path-based routing)"]
     end
 
-    subgraph L4["LAYER 4: Applications (ArgoCD)"]
-        App1[sample-app-1]
-        App2[sample-app-2]
-        Health[health-responder]
-        API[users-api]
+    subgraph L4["LAYER 4: Application Deployment (ArgoCD)"]
+        direction TB
+        L4A["sample-app-1, sample-app-2"]
+        L4B["health-responder"]
+        L4C["users-api"]
     end
 
     L1 --> L2
@@ -159,6 +169,10 @@ flowchart TB
     style L2 fill:#fff3e0
     style L3 fill:#f3e5f5
     style L4 fill:#e8f5e9
+    style L2Nodes fill:#ffe0b2
+    style L2Sys fill:#ffccbc
+    style L2User fill:#c8e6c9
+    style L3Istio fill:#e1bee7
 ```
 
 ## EKS Cluster Detail
