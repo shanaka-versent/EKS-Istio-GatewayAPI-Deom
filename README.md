@@ -46,38 +46,7 @@ flowchart TB
 
 **Traffic Flow:** `Internet` → `ALB (L7)` → `Internal NLB (L4)` → `Istio Gateway` → `HTTPRoutes` → `Apps`
 
-## Traffic Flow
-
-```mermaid
-flowchart LR
-    subgraph Internet
-        Client[Client]
-    end
-
-    subgraph PublicSubnet["Public Subnet"]
-        ALB2["AWS ALB<br/>(Terraform)"]
-        TG2["Target Group<br/>HTTP/HTTPS"]
-    end
-
-    subgraph PrivateSubnet["Private Subnet - EKS"]
-        NLB2["Internal NLB<br/>(Gateway API +<br/>LB Controller)"]
-        GW2["Istio Gateway<br/>(Gateway API)"]
-        Routes["HTTPRoutes<br/>/app1, /app2<br/>/api/users, /healthz"]
-        Services["Services<br/>app1, app2<br/>users-api"]
-    end
-
-    Client --> ALB2
-    ALB2 --> TG2
-    TG2 -->|NLB IPs<br/>registered| NLB2
-    NLB2 -->|Created dynamically<br/>by LB Controller| GW2
-    GW2 --> Routes
-    Routes --> Services
-
-    style PublicSubnet fill:#c8e6c9
-    style PrivateSubnet fill:#e3f2fd
-```
-
-## End-to-End TLS Flow
+## End-to-End Traffic Flow
 
 The architecture implements **dual TLS termination** for secure traffic from client to backend:
 
