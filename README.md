@@ -11,67 +11,70 @@ This project demonstrates a modern Kubernetes architecture on AWS EKS using:
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                         AWS Cloud                                            │
-│                                                                                              │
-│  ┌────────────────────────────────────── VPC ──────────────────────────────────────────┐    │
-│  │                                                                                      │    │
-│  │   ┌─────────────────────────────┐      ┌─────────────────────────────────────────┐  │    │
-│  │   │      Public Subnets         │      │           Private Subnets                │  │    │
-│  │   │                             │      │                                          │  │    │
-│  │   │  ┌───────────────────────┐  │      │  ┌────────────────────────────────────┐ │  │    │
-│  │   │  │      AWS ALB          │  │      │  │          EKS Cluster               │ │  │    │
-│  │   │  │   (Internet-facing)   │──┼──────┼─▶│                                    │ │  │    │
-│  │   │  │    HTTP/HTTPS         │  │      │  │  ┌──────────────────────────────┐ │ │  │    │
-│  │   │  └───────────────────────┘  │      │  │  │     Internal NLB             │ │ │  │    │
-│  │   │            │                │      │  │  │  (AWS LB Controller created) │ │ │  │    │
-│  │   │            │ Target Group   │      │  │  └─────────────┬────────────────┘ │ │  │    │
-│  │   │            │ Registration   │      │  │                │                   │ │  │    │
-│  │   │            ▼                │      │  │  ┌─────────────▼────────────────┐ │ │  │    │
-│  │   │     ┌─────────────┐         │      │  │  │     Istio Gateway            │ │ │  │    │
-│  │   │     │ NLB IP Pool │─────────┼──────┼──┼──│     (Gateway API)            │ │ │  │    │
-│  │   │     └─────────────┘         │      │  │  └─────────────┬────────────────┘ │ │  │    │
-│  │   │                             │      │  │                │                   │ │  │    │
-│  │   │                             │      │  │  ┌─────────────▼────────────────┐ │ │  │    │
-│  │   │                             │      │  │  │       HTTPRoutes             │ │ │  │    │
-│  │   │                             │      │  │  │  /app1  /app2  /api/users    │ │ │  │    │
-│  │   │                             │      │  │  └─────────────┬────────────────┘ │ │  │    │
-│  │   │                             │      │  │                │                   │ │  │    │
-│  │   │                             │      │  │  ┌─────────────▼────────────────┐ │ │  │    │
-│  │   │                             │      │  │  │    Application Pods          │ │ │  │    │
-│  │   │                             │      │  │  │  (Istio Ambient - no sidecar)│ │ │  │    │
-│  │   │                             │      │  │  └──────────────────────────────┘ │ │  │    │
-│  │   │                             │      │  │                                    │ │  │    │
-│  │   │                             │      │  └────────────────────────────────────┘ │  │    │
-│  │   │                             │      │                                          │  │    │
-│  │   └─────────────────────────────┘      └──────────────────────────────────────────┘  │    │
-│  │                                                                                      │    │
-│  └──────────────────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                              │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph AWS["AWS Cloud"]
+        subgraph VPC["VPC"]
+            subgraph Public["Public Subnets"]
+                ALB["AWS ALB<br/>(Internet-facing)<br/>HTTP/HTTPS"]
+                TG["Target Group<br/>NLB IPs registered<br/>post-deploy"]
+            end
+            subgraph Private["Private Subnets"]
+                subgraph EKS["EKS Cluster"]
+                    NLB["Internal NLB<br/>(AWS LB Controller)"]
+                    GW["Istio Gateway<br/>(Gateway API)"]
+                    HR["HTTPRoutes<br/>/app1 /app2<br/>/api/users /healthz"]
+                    Apps["Application Pods<br/>(Istio Ambient)"]
+                end
+            end
+        end
+    end
 
-Internet ──▶ ALB (Layer 7) ──▶ Internal NLB (Layer 4) ──▶ Istio Gateway ──▶ HTTPRoutes ──▶ Apps
+    Internet((Internet)) --> ALB
+    ALB --> TG
+    TG --> NLB
+    NLB --> GW
+    GW --> HR
+    HR --> Apps
+
+    style AWS fill:#fff3e0
+    style VPC fill:#e3f2fd
+    style Public fill:#c8e6c9
+    style Private fill:#ffecb3
+    style EKS fill:#f3e5f5
 ```
+
+**Traffic Flow:** `Internet` → `ALB (L7)` → `Internal NLB (L4)` → `Istio Gateway` → `HTTPRoutes` → `Apps`
 
 ## Traffic Flow
 
-```
-┌──────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌──────────────┐
-│          │     │    AWS ALB      │     │  Internal NLB   │     │  Istio Gateway  │     │   Services   │
-│ Internet │────▶│  (Terraform)    │────▶│ (Gateway API +  │────▶│  (Gateway API)  │────▶│  app1, app2  │
-│          │     │  Public Subnet  │     │  LB Controller) │     │  istio-ingress  │     │  users-api   │
-└──────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘     └──────────────┘
-                        │                        │                        │
-                        │                        │                        │
-                 ┌──────▼──────┐          ┌──────▼──────┐          ┌──────▼──────┐
-                 │ Target Group│          │   Created   │          │ HTTPRoutes  │
-                 │ (HTTP:80)   │          │ dynamically │          │ define paths│
-                 │             │          │ by AWS LB   │          │ /app1       │
-                 │ NLB IPs     │          │ Controller  │          │ /app2       │
-                 │ registered  │          │ when Gateway│          │ /api/users  │
-                 │ post-deploy │          │ is created  │          │ /healthz    │
-                 └─────────────┘          └─────────────┘          └─────────────┘
+```mermaid
+flowchart LR
+    subgraph Internet
+        Client[Client]
+    end
+
+    subgraph PublicSubnet["Public Subnet"]
+        ALB2["AWS ALB<br/>(Terraform)"]
+        TG2["Target Group<br/>HTTP/HTTPS"]
+    end
+
+    subgraph PrivateSubnet["Private Subnet - EKS"]
+        NLB2["Internal NLB<br/>(Gateway API +<br/>LB Controller)"]
+        GW2["Istio Gateway<br/>(Gateway API)"]
+        Routes["HTTPRoutes<br/>/app1, /app2<br/>/api/users, /healthz"]
+        Services["Services<br/>app1, app2<br/>users-api"]
+    end
+
+    Client --> ALB2
+    ALB2 --> TG2
+    TG2 -->|NLB IPs<br/>registered| NLB2
+    NLB2 -->|Created dynamically<br/>by LB Controller| GW2
+    GW2 --> Routes
+    Routes --> Services
+
+    style PublicSubnet fill:#c8e6c9
+    style PrivateSubnet fill:#e3f2fd
 ```
 
 ## End-to-End TLS Flow
@@ -140,83 +143,104 @@ backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
 
 ## Architecture Layers
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DEPLOYMENT LAYERS                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  LAYER 1: Cloud Foundations (Terraform)                                     │
-│  ├── VPC with Public & Private Subnets                                     │
-│  ├── NAT Gateway, Internet Gateway                                          │
-│  └── Route Tables, Security Groups                                          │
-│                                                                              │
-│  LAYER 2: Base EKS Cluster Setup (Terraform)                                │
-│  ├── EKS Cluster with OIDC Provider                                        │
-│  ├── Node Groups:                                                           │
-│  │   ├── System Nodes (tainted: CriticalAddonsOnly)                        │
-│  │   │   └── Runs: ArgoCD, Istio, LB Controller                            │
-│  │   └── User Nodes (no taint)                                              │
-│  │       └── Runs: Application workloads                                    │
-│  ├── IAM Roles (Cluster, Node, LB Controller)                              │
-│  ├── ArgoCD Installation                                                    │
-│  ├── AWS Load Balancer Controller                                           │
-│  └── ALB (External, Internet-facing)                                        │
-│                                                                              │
-│  LAYER 3: EKS Customizations (ArgoCD)                                       │
-│  ├── Gateway API CRDs (Kubernetes SIGs)                                     │
-│  ├── Istio Ambient Mesh:                                                    │
-│  │   ├── istio-base (CRDs)                                                  │
-│  │   ├── istiod (Control Plane)                                             │
-│  │   ├── istio-cni (CNI Plugin)                                             │
-│  │   └── ztunnel (L4 mTLS DaemonSet)                                        │
-│  ├── Namespaces (with istio.io/dataplane-mode: ambient)                    │
-│  ├── Istio Gateway (creates Internal NLB)                                   │
-│  └── HTTPRoutes (path-based routing)                                        │
-│                                                                              │
-│  LAYER 4: Application Deployment (ArgoCD)                                   │
-│  ├── sample-app-1, sample-app-2                                             │
-│  ├── health-responder                                                       │
-│  └── users-api                                                               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph L1["LAYER 1: Cloud Foundations (Terraform)"]
+        VPC[VPC]
+        PubSub[Public Subnets]
+        PrivSub[Private Subnets]
+        IGW[Internet Gateway]
+        NAT[NAT Gateway]
+        SG[Security Groups]
+    end
+
+    subgraph L2["LAYER 2: Base EKS Cluster Setup (Terraform)"]
+        EKS[EKS Cluster + OIDC]
+        SysNodes[System Nodes<br/>Taint: CriticalAddonsOnly]
+        UserNodes[User Nodes<br/>No Taint]
+        IAM[IAM Roles]
+        ArgoCD[ArgoCD]
+        LBC[AWS LB Controller]
+        ALB[ALB - Internet-facing]
+    end
+
+    subgraph L3["LAYER 3: EKS Customizations (ArgoCD)"]
+        GWAPI[Gateway API CRDs]
+        IstioBase[istio-base CRDs]
+        Istiod[istiod Control Plane]
+        IstioCNI[istio-cni Plugin]
+        Ztunnel[ztunnel DaemonSet]
+        NS[Namespaces<br/>ambient mode]
+        GW[Istio Gateway<br/>creates Internal NLB]
+        Routes[HTTPRoutes]
+    end
+
+    subgraph L4["LAYER 4: Applications (ArgoCD)"]
+        App1[sample-app-1]
+        App2[sample-app-2]
+        Health[health-responder]
+        API[users-api]
+    end
+
+    L1 --> L2
+    L2 --> L3
+    L3 --> L4
+
+    style L1 fill:#e1f5fe
+    style L2 fill:#fff3e0
+    style L3 fill:#f3e5f5
+    style L4 fill:#e8f5e9
 ```
 
 ## EKS Cluster Detail
 
-```
-┌─────────────────────────────────────── EKS Cluster ───────────────────────────────────────┐
-│                                                                                            │
-│  ┌─────────────────────────────────┐    ┌─────────────────────────────────┐              │
-│  │      System Node Pool           │    │       User Node Pool            │              │
-│  │   (Taint: CriticalAddonsOnly)   │    │        (No Taint)               │              │
-│  │                                 │    │                                  │              │
-│  │  ┌───────────────────────────┐  │    │  ┌───────────────────────────┐  │              │
-│  │  │ kube-system               │  │    │  │ sample-apps               │  │              │
-│  │  │  ├─ aws-lb-controller     │  │    │  │  ├─ sample-app-1          │  │              │
-│  │  │  ├─ coredns               │  │    │  │  └─ sample-app-2          │  │              │
-│  │  │  └─ kube-proxy            │  │    │  │                           │  │              │
-│  │  └───────────────────────────┘  │    │  │ api-services              │  │              │
-│  │                                 │    │  │  └─ users-api             │  │              │
-│  │  ┌───────────────────────────┐  │    │  │                           │  │              │
-│  │  │ istio-system              │  │    │  │ gateway-health            │  │              │
-│  │  │  ├─ istiod                │  │    │  │  └─ health-responder     │  │              │
-│  │  │  ├─ istio-cni (DaemonSet) │  │    │  └───────────────────────────┘  │              │
-│  │  │  └─ ztunnel (DaemonSet)   │  │    │                                  │              │
-│  │  └───────────────────────────┘  │    │  Note: DaemonSets (istio-cni,   │              │
-│  │                                 │    │  ztunnel) run on ALL nodes      │              │
-│  │  ┌───────────────────────────┐  │    │  with tolerations               │              │
-│  │  │ istio-ingress             │  │    │                                  │              │
-│  │  │  └─ mtkc-gateway          │  │    │                                  │              │
-│  │  └───────────────────────────┘  │    │                                  │              │
-│  │                                 │    │                                  │              │
-│  │  ┌───────────────────────────┐  │    │                                  │              │
-│  │  │ argocd                    │  │    │                                  │              │
-│  │  │  └─ argocd-server, etc.   │  │    │                                  │              │
-│  │  └───────────────────────────┘  │    │                                  │              │
-│  │                                 │    │                                  │              │
-│  └─────────────────────────────────┘    └──────────────────────────────────┘              │
-│                                                                                            │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph EKS["EKS Cluster"]
+        subgraph SystemPool["System Node Pool<br/>(Taint: CriticalAddonsOnly)"]
+            subgraph KS["kube-system"]
+                LBC2[aws-lb-controller]
+                CoreDNS[coredns]
+                KubeProxy[kube-proxy]
+            end
+            subgraph IS["istio-system"]
+                Istiod2[istiod]
+                CNI[istio-cni<br/>DaemonSet]
+                ZT[ztunnel<br/>DaemonSet]
+            end
+            subgraph II["istio-ingress"]
+                GW2[mtkc-gateway]
+            end
+            subgraph AC["argocd"]
+                ArgoServer[argocd-server]
+            end
+        end
+
+        subgraph UserPool["User Node Pool<br/>(No Taint)"]
+            subgraph SA["sample-apps"]
+                App1B[sample-app-1]
+                App2B[sample-app-2]
+            end
+            subgraph API2["api-services"]
+                UsersAPI[users-api]
+            end
+            subgraph GH["gateway-health"]
+                HealthResp[health-responder]
+            end
+        end
+    end
+
+    Note["Note: DaemonSets (istio-cni, ztunnel)<br/>run on ALL nodes with tolerations"]
+
+    style SystemPool fill:#fff3e0
+    style UserPool fill:#e8f5e9
+    style KS fill:#e3f2fd
+    style IS fill:#fce4ec
+    style II fill:#f3e5f5
+    style AC fill:#e0f2f1
+    style SA fill:#fff8e1
+    style API2 fill:#fbe9e7
+    style GH fill:#f1f8e9
 ```
 
 ## Layer Responsibilities
