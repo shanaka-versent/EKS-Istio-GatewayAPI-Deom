@@ -11,46 +11,11 @@ This project demonstrates a modern Kubernetes architecture on AWS EKS using:
 
 ## Architecture Overview
 
-```mermaid
-flowchart TB
-    subgraph AWS["AWS Cloud"]
-        subgraph VPC["VPC"]
-            subgraph Public["Public Subnets"]
-                ALB["AWS ALB<br/>(Internet-facing)"]
-                TLS1["TLS Termination<br/>ACM Certificate"]
-                TLS2["TLS Re-encryption<br/>Backend HTTPS"]
-                TG["Target Group<br/>(HTTPS:443)"]
-            end
-            subgraph Private["Private Subnets"]
-                subgraph EKS["EKS Cluster"]
-                    NLB["Internal NLB<br/>(TLS Passthrough)"]
-                    GW["Istio Gateway<br/>TLS Termination<br/>(Self-signed cert)"]
-                    HR["HTTPRoutes<br/>/app1 /app2<br/>/api/users /healthz"]
-                    Apps["Application Pods<br/>(Istio Ambient mTLS)"]
-                end
-            end
-        end
-    end
+![Architecture Overview](docs/images/architecture-overview.png)
 
-    Internet((Internet)) -->|"HTTPS :443"| ALB
-    ALB --> TLS1
-    TLS1 -->|"Decrypt"| TLS2
-    TLS2 -->|"Re-encrypt"| TG
-    TG -->|"HTTPS :443"| NLB
-    NLB -->|"HTTPS :443"| GW
-    GW -->|"HTTP + mTLS"| HR
-    HR --> Apps
+> **Note:** The diagram shows "Public Subnet" and "Private Subnet" as single boxes for simplicity, but the actual implementation creates **multiple subnets across Availability Zones** (default: 2 AZs) for high availability.
 
-    style AWS fill:#fff3e0
-    style VPC fill:#e3f2fd
-    style Public fill:#c8e6c9
-    style Private fill:#ffecb3
-    style EKS fill:#f3e5f5
-    style TLS1 fill:#e8f5e9,stroke:#2e7d32
-    style TLS2 fill:#fff3e0,stroke:#f57c00
-```
-
-**Traffic Flow:** `Internet` → `ALB (TLS Terminate + Re-encrypt)` → `Internal NLB (Passthrough)` → `Istio Gateway (TLS Terminate)` → `Apps (mTLS)`
+**Traffic Flow:** `Client` → `ALB (TLS Termination #1 + Re-encrypt)` → `Internal NLB (Passthrough)` → `Istio Gateway (TLS Termination #2)` → `HTTPRoute Matching` → `Backend PODs`
 
 ### ALB SSL Termination & Re-encryption (Similar to Azure App Gateway)
 
