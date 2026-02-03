@@ -250,66 +250,6 @@ This deploys via ArgoCD:
 >
 > Then Terraform creates a separate Service pointing to the Gateway pods, giving full control over the NLB lifecycle. See the commented alternative in `k8s/istio/gateway.yaml` for details.
 
-## Project Structure
-
-```
-EKS-Istio-GatewayAPI-Demo/
-├── terraform/                    # LAYERS 1 & 2
-│   ├── main.tf                   # Root module with layer comments
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── providers.tf
-│   └── modules/
-│       ├── vpc/                  # Layer 1: Cloud Foundations
-│       ├── eks/                  # Layer 2: EKS Cluster
-│       ├── iam/                  # Layer 2: IAM Roles
-│       ├── alb/                  # Layer 2: Application Load Balancer
-│       ├── argocd/               # Layer 2: ArgoCD Installation
-│       └── lb-controller/        # Layer 2: AWS LB Controller
-├── argocd/                       # LAYERS 3 & 4
-│   ├── root-app.yaml             # Root application (App of Apps)
-│   └── apps/
-│       ├── 00-gateway-api-crds.yaml  # Layer 3: Gateway API CRDs
-│       ├── 01-namespaces.yaml        # Layer 3
-│       ├── 02-istio-base.yaml        # Layer 3
-│       ├── 03-istiod.yaml            # Layer 3
-│       ├── 04-istio-cni.yaml         # Layer 3
-│       ├── 05-ztunnel.yaml           # Layer 3
-│       ├── 06-gateway.yaml           # Layer 3
-│       ├── 07-httproutes.yaml        # Layer 3
-│       └── 08-apps.yaml              # Layer 4
-├── k8s/
-│   ├── namespace.yaml            # Ambient-enabled namespaces
-│   ├── apps/                     # Layer 4: Sample applications
-│   └── istio/                    # Layer 3: Gateway & HTTPRoutes
-├── certs/
-└── scripts/
-    ├── 01-generate-certs.sh      # Generate TLS certificates
-    └── 06-register-nlb-with-alb.sh  # Register NLB with ALB (post-deploy)
-```
-
-## Key Terraform Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `region` | ap-southeast-2 | AWS region |
-| `kubernetes_version` | 1.34 | EKS Kubernetes version |
-| `eks_node_count` | 2 | Number of system nodes |
-| `enable_user_node_pool` | true | Enable separate user node pool |
-| `argocd_version` | 5.51.6 | ArgoCD Helm chart version |
-| `argocd_service_type` | ClusterIP | ArgoCD server service type |
-| `enable_https` | false | Enable HTTPS on ALB (requires ACM cert) |
-
-## Key Terraform Outputs
-
-| Output | Description |
-|--------|-------------|
-| `eks_cluster_name` | EKS cluster name |
-| `alb_dns_name` | ALB DNS name for testing |
-| `argocd_admin_password` | ArgoCD admin password |
-| `argocd_port_forward_command` | Command to access ArgoCD UI |
-| `register_nlb_command` | Post-deployment script path |
-
 ## Verification
 
 ### Test Web Endpoints (via ALB)
