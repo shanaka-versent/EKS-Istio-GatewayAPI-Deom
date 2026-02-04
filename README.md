@@ -416,7 +416,3 @@ flowchart LR
 | [k8s/istio/httproutes.yaml](k8s/istio/httproutes.yaml) | Defines health-route for `/healthz/*` paths |
 | [k8s/apps/health-responder.yaml](k8s/apps/health-responder.yaml) | Deploys nginx pod responding with 200 OK |
 | [k8s/istio/httproutes.yaml](k8s/istio/httproutes.yaml) | ReferenceGrant for cross-namespace routing |
-
-## License
-
-MIT License
