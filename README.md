@@ -139,6 +139,8 @@ flowchart TB
     end
 
     Note["Note: DaemonSets (istio-cni, ztunnel)<br/>run on ALL nodes with tolerations"]
+
+    style EKS fill:#f0f0f0
 ```
 
 ## Prerequisites
