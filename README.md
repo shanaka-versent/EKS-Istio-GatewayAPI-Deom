@@ -139,16 +139,6 @@ flowchart TB
     end
 
     Note["Note: DaemonSets (istio-cni, ztunnel)<br/>run on ALL nodes with tolerations"]
-
-    style SystemPool fill:#fff3e0
-    style UserPool fill:#e8f5e9
-    style KS fill:#e3f2fd
-    style IS fill:#fce4ec
-    style II fill:#f3e5f5
-    style AC fill:#e0f2f1
-    style SA fill:#fff8e1
-    style API2 fill:#fbe9e7
-    style GH fill:#f1f8e9
 ```
 
 ## Prerequisites
