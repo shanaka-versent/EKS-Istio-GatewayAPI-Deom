@@ -98,7 +98,7 @@ backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
 | **Layer 1** | Terraform | VPC, Subnets (Public/Private), NAT/IGW, Route Tables |
 | **Layer 2** | Terraform | EKS, Node Groups (System/User), IAM, ArgoCD, LB Controller, ALB |
 | **Layer 3** | ArgoCD | Gateway API CRDs, Istio Ambient, Gateway, HTTPRoutes |
-| **Layer 4** | ArgoCD | Applications (app1, app2, users-api, health-responder) |
+| **Layer 4** | ArgoCD | Applications (app1, app2, health-responder) |
 
 ## EKS Cluster Detail
 
@@ -129,9 +129,6 @@ flowchart TB
             subgraph SA["sample-apps"]
                 App1B[sample-app-1]
                 App2B[sample-app-2]
-            end
-            subgraph API2["api-services"]
-                UsersAPI[users-api]
             end
             subgraph GH["gateway-health"]
                 HealthResp[health-responder]
