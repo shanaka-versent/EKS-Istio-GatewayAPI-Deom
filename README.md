@@ -103,10 +103,9 @@ backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
 ## EKS Cluster Detail
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '19px'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '19px'}, 'flowchart': {'nodeSpacing': 30, 'rankSpacing': 50, 'subGraphTitleMargin': {'top': 20, 'bottom': 20}}}}%%
 flowchart TB
     subgraph EKS["EKS Cluster"]
-        Spacer["<br/><br/>"]
         subgraph SystemPool["System Node Pool<br/>(Taint: CriticalAddonsOnly)"]
             subgraph KS["kube-system"]
                 LBC2[aws-lb-controller]
@@ -145,7 +144,6 @@ flowchart TB
     style EKS fill:#f0f0f0
     style SystemPool fill:#ffffff
     style UserPool fill:#ffffff
-    style Spacer fill:none,stroke:none
 ```
 
 ## Prerequisites
