@@ -103,6 +103,7 @@ backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
 ## EKS Cluster Detail
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '19px'}}}%%
 flowchart TB
     subgraph EKS["EKS Cluster"]
         subgraph SystemPool["System Node Pool<br/>(Taint: CriticalAddonsOnly)"]
