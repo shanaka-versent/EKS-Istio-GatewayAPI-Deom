@@ -106,6 +106,7 @@ backend_https_enabled = true  # ALB -> NLB -> Gateway over HTTPS
 %%{init: {'theme': 'base', 'themeVariables': {'fontSize': '19px'}}}%%
 flowchart TB
     subgraph EKS["EKS Cluster"]
+        Spacer[" "]
         subgraph SystemPool["System Node Pool<br/>(Taint: CriticalAddonsOnly)"]
             subgraph KS["kube-system"]
                 LBC2[aws-lb-controller]
@@ -144,6 +145,7 @@ flowchart TB
     style EKS fill:#f0f0f0
     style SystemPool fill:#ffffff
     style UserPool fill:#ffffff
+    style Spacer fill:none,stroke:none
 ```
 
 ## Prerequisites
