@@ -1,8 +1,17 @@
 #!/bin/bash
-# MTKC POC EKS - Generate TLS Certificates
+# MTKC POC EKS - Generate TLS Certificates for End-to-End TLS
 # @author Shanaka Jayasundera - shanakaj@gmail.com
 #
-# This script generates self-signed TLS certificates for the Istio Gateway
+# This script generates self-signed TLS certificates for the Istio Gateway backend.
+#
+# END-TO-END TLS ARCHITECTURE:
+# ============================
+# 1. Client -> ALB: TLS terminated using ACM certificate (managed by AWS)
+# 2. ALB -> Internal NLB -> Istio Gateway: TLS using certificates generated here
+# 3. Istio Gateway -> Pods: mTLS handled automatically by Istio Ambient
+#
+# The certificates generated here are for the BACKEND connection (ALB to Istio Gateway).
+# For the FRONTEND (client-facing), use AWS ACM certificates.
 
 set -e
 
@@ -10,7 +19,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CERTS_DIR="${SCRIPT_DIR}/../certs"
 DOMAIN="${1:-mtkc-poc.local}"
 
-echo "=== Generating TLS Certificates ==="
+echo "=== Generating TLS Certificates for Istio Gateway Backend ==="
+echo ""
+echo "End-to-End TLS Flow:"
+echo "  Client --[TLS/ACM]--> ALB --[TLS/Self-signed]--> NLB --> Istio Gateway --[mTLS]--> Pods"
+echo ""
 echo "Domain: ${DOMAIN}"
 echo "Output directory: ${CERTS_DIR}"
 
@@ -79,8 +92,26 @@ rm -f "${CERTS_DIR}/server.csr" "${CERTS_DIR}/server.cnf" "${CERTS_DIR}/ca.srl"
 
 echo ""
 echo "=== Certificates Generated Successfully ==="
-echo "CA Certificate: ${CERTS_DIR}/ca.crt"
-echo "Server Certificate: ${CERTS_DIR}/server.crt"
-echo "Server Key: ${CERTS_DIR}/server.key"
 echo ""
-echo "Next step: Run 02-deploy-istio.sh"
+echo "Files created:"
+echo "  CA Certificate:     ${CERTS_DIR}/ca.crt"
+echo "  Server Certificate: ${CERTS_DIR}/server.crt"
+echo "  Server Key:         ${CERTS_DIR}/server.key"
+echo ""
+echo "=== Next Steps ==="
+echo ""
+echo "1. Create the Kubernetes TLS secret for Istio Gateway:"
+echo ""
+echo "   kubectl create namespace istio-ingress"
+echo "   kubectl create secret tls istio-gateway-tls \\"
+echo "     --cert=${CERTS_DIR}/server.crt \\"
+echo "     --key=${CERTS_DIR}/server.key \\"
+echo "     -n istio-ingress"
+echo ""
+echo "2. For end-to-end TLS, configure Terraform with:"
+echo ""
+echo "   enable_https          = true"
+echo "   acm_certificate_arn   = \"arn:aws:acm:...\""
+echo "   backend_https_enabled = true"
+echo ""
+echo "3. Then run: ./scripts/02-deploy-istio.sh"
